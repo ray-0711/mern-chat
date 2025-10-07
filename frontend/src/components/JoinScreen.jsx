@@ -1,3 +1,4 @@
+// JoinScreen.jsx
 import { useState } from 'react';
 
 const JoinScreen = ({ onJoin }) => {
@@ -13,7 +14,7 @@ const JoinScreen = ({ onJoin }) => {
           <h1 className="text-3xl font-bold text-white mb-2">MERN Chat</h1>
           <p className="text-gray-400">Connect with people worldwide</p>
         </div>
-        
+
         <form onSubmit={(e) => { e.preventDefault(); username.trim() && onJoin(username.trim()); }}>
           <input
             type="text"
@@ -23,8 +24,8 @@ const JoinScreen = ({ onJoin }) => {
             className="w-full p-4 mb-6 bg-gray-700/50 text-white rounded-xl border border-gray-600 focus:outline-none focus:border-blue-500"
             required
           />
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-xl font-semibold hover:from-blue-500 hover:to-purple-500 transition-all"
           >
             Join Chat

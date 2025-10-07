@@ -1,12 +1,9 @@
+// Chat.jsx
 import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
-// FIXED: Use your actual Render URL
-const BACKEND_URL = 'https://mern-chat-backend-oacx.onrender.com';
-const socket = io(BACKEND_URL, {
-  transports: ['websocket', 'polling'],
-  withCredentials: true
-});
+// Use environment variable for backend URL
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const Chat = ({ username, room }) => {
   const [messages, setMessages] = useState([]);
@@ -14,12 +11,24 @@ const Chat = ({ username, room }) => {
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const messagesEndRef = useRef(null);
 
+  // Initialize socket once per component
+  const socketRef = useRef(null);
+  if (!socketRef.current) {
+    socketRef.current = io(BACKEND_URL, {
+      transports: ['websocket', 'polling'],
+      withCredentials: true
+    });
+  }
+
+  const socket = socketRef.current;
+
   useEffect(() => {
-    console.log('🔗 Connecting to:', BACKEND_URL);
-    
+    console.log('🔗 Connecting to backend:', BACKEND_URL);
+
     socket.on('connect', () => {
       console.log('✅ Connected to server');
       setConnectionStatus('connected');
+      socket.emit('joinRoom', { username, room });
     });
 
     socket.on('disconnect', () => {
@@ -32,40 +41,34 @@ const Chat = ({ username, room }) => {
       setConnectionStatus('error');
     });
 
-    socket.emit('joinRoom', { username, room });
-    
-    socket.on('previousMessages', (messages) => {
-      console.log('📨 Received previous messages:', messages);
-      setMessages(messages);
+    socket.on('previousMessages', (msgs) => {
+      console.log('📨 Previous messages:', msgs);
+      setMessages(msgs);
       scrollToBottom();
     });
 
     socket.on('newMessage', (msg) => {
-      console.log('➕ New message received:', msg);
       setMessages(prev => [...prev, msg]);
       scrollToBottom();
     });
 
     socket.on('messageDeleted', (id) => {
-      console.log('🗑️ Message deleted:', id);
       setMessages(prev => prev.filter(msg => msg._id !== id));
     });
 
     return () => {
-      socket.off('previousMessages');
-      socket.off('newMessage');
-      socket.off('messageDeleted');
       socket.off('connect');
       socket.off('disconnect');
       socket.off('connect_error');
+      socket.off('previousMessages');
+      socket.off('newMessage');
+      socket.off('messageDeleted');
     };
   }, [username, room]);
 
   const sendMessage = (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    
-    console.log('📤 Sending message:', input.trim());
+    if (!input.trim() || connectionStatus !== 'connected') return;
     socket.emit('sendMessage', { text: input.trim(), room });
     setInput('');
   };
@@ -82,31 +85,28 @@ const Chat = ({ username, room }) => {
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-900 to-gray-800">
-      <header className="bg-gray-800/80 p-4 text-white border-b border-gray-700">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${
-              connectionStatus === 'connected' ? 'bg-green-500' : 
-              connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
-            }`}></div>
-            <h1 className="text-xl font-bold">MERN Chat</h1>
-            <span className="text-gray-400">Room: {room}</span>
-          </div>
-          <div className="text-right">
-            <div className="text-blue-400 font-medium">{username}</div>
-            <div className="text-xs text-gray-400">
-              Status: {connectionStatus}
-            </div>
-          </div>
+      <header className="bg-gray-800/80 p-4 text-white border-b border-gray-700 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className={`w-3 h-3 rounded-full ${
+            connectionStatus === 'connected' ? 'bg-green-500' : 
+            connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+          }`}></div>
+          <h1 className="text-xl font-bold">MERN Chat</h1>
+          <span className="text-gray-400">Room: {room}</span>
+        </div>
+        <div className="text-right">
+          <div className="text-blue-400 font-medium">{username}</div>
+          <div className="text-xs text-gray-400">Status: {connectionStatus}</div>
         </div>
       </header>
 
-      {/* Rest of your component remains the same */}
       <main className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
         {messages.map((msg, index) => {
           const isOwn = msg.user === username;
           const showUserInfo = !messages[index - 1] || messages[index - 1].user !== msg.user;
-          return <Message key={msg._id} message={msg} isOwn={isOwn} showUserInfo={showUserInfo} onDelete={deleteMessage} />;
+          return (
+            <Message key={msg._id} message={msg} isOwn={isOwn} showUserInfo={showUserInfo} onDelete={deleteMessage} />
+          );
         })}
         <div ref={messagesEndRef} />
       </main>
@@ -119,8 +119,8 @@ const Chat = ({ username, room }) => {
             placeholder={`Message in ${room}...`}
             className="flex-1 p-3 bg-gray-700/50 text-white rounded-xl border border-gray-600 focus:outline-none focus:border-blue-500"
           />
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={!input.trim() || connectionStatus !== 'connected'}
             className="bg-blue-600 text-white px-6 rounded-xl font-semibold hover:bg-blue-500 disabled:opacity-50"
           >
@@ -132,7 +132,7 @@ const Chat = ({ username, room }) => {
   );
 };
 
-// Message component remains the same
+// Message component
 const Message = ({ message, isOwn, showUserInfo, onDelete }) => {
   const [showOptions, setShowOptions] = useState(false);
 
@@ -156,10 +156,9 @@ const Message = ({ message, isOwn, showUserInfo, onDelete }) => {
           : 'bg-gray-700 text-white rounded-bl-md border border-gray-600'
         }`}>
           <div className="break-words">{message.text}</div>
-          
           {showOptions && isOwn && (
             <div className="absolute -top-8 right-2 flex gap-1 bg-gray-800 border border-gray-600 rounded-lg p-1">
-              <button 
+              <button
                 onClick={() => onDelete(message._id)}
                 className="p-2 text-red-400 hover:bg-gray-700 rounded transition-colors"
                 title="Delete"

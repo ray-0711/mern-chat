@@ -29,7 +29,10 @@ const Message = mongoose.model('Message', messageSchema);
 // Socket.io
 const io = socketIo(server, {
   cors: {
-    origin: "*",
+    origin: [
+      "http://localhost:5173", 
+      "https://mern-chat-app.netlify.app/"  // Your Netlify URL
+    ],
     methods: ["GET", "POST"]
   }
 });

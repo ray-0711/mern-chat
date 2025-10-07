@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
-const socket = io('http://localhost:5000');
+// This will be set during build
+const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
 
 const Chat = ({ username, room }) => {
   const [messages, setMessages] = useState([]);

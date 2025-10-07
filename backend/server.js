@@ -35,8 +35,6 @@ const io = socketIo(server, {
 });
 
 io.on('connection', (socket) => {
-  console.log('🔗 User connected:', socket.id);
-
   socket.on('joinRoom', async ({ username, room }) => {
     socket.join(room);
     socket.username = username;
@@ -60,10 +58,6 @@ io.on('connection', (socket) => {
       await Message.findByIdAndDelete(data.messageId);
       io.to(data.room).emit('messageDeleted', data.messageId);
     }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('🔌 User disconnected:', socket.id);
   });
 });
 

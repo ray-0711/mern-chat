@@ -1,0 +1,11 @@
+/* Add this to your CSS */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #1a202c;
+  color: white;
+}
+
+#root {
+  height: 100vh;
+}

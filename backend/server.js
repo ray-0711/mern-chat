@@ -2,10 +2,21 @@ const express = require('express');
 const mongoose = require('mongoose');
 const socketIo = require('socket.io');
 const cors = require('cors');
+const http = require('http');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
+const server = http.createServer(app);
+
+// MongoDB connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mernchat';
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB error:', err));
+
+// Message schema
 const messageSchema = new mongoose.Schema({
   user: String,
   text: String,
@@ -15,13 +26,17 @@ const messageSchema = new mongoose.Schema({
 
 const Message = mongoose.model('Message', messageSchema);
 
-mongoose.connect('mongodb://localhost:27017/mernchat');
-
-const server = app.listen(5000, () => console.log('Server running on port 5000'));
-
-const io = socketIo(server, { cors: { origin: "*" } });
+// Socket.io
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 io.on('connection', (socket) => {
+  console.log('🔗 User connected:', socket.id);
+
   socket.on('joinRoom', async ({ username, room }) => {
     socket.join(room);
     socket.username = username;
@@ -30,7 +45,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('sendMessage', async (data) => {
-    const message = new Message({ user: socket.username, text: data.text, room: data.room });
+    const message = new Message({
+      user: socket.username,
+      text: data.text,
+      room: data.room
+    });
     const savedMessage = await message.save();
     io.to(data.room).emit('newMessage', savedMessage);
   });
@@ -42,4 +61,13 @@ io.on('connection', (socket) => {
       io.to(data.room).emit('messageDeleted', data.messageId);
     }
   });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 User disconnected:', socket.id);
+  });
+});
+
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
